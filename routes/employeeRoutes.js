@@ -32,5 +32,52 @@ router.get('/', authenticate, authorize('admin'), async (req, res) => {
     const employees = await Employee.find(); // Sử dụng mô hình để lấy danh sách
     res.json(employees);
 });
+// Thêm nhân viên
+router.post('/add', authenticate, authorize('admin'), async (req, res) => {
+    const { name, email, password, role } = req.body;
 
+    // Kiểm tra email đã tồn tại
+    const existingEmployee = await Employee.findOne({ email });
+    if (existingEmployee) {
+        return res.status(400).send('Email already exists');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10); // Băm mật khẩu
+    const employee = new Employee({ name, email, password: hashedPassword, role });
+    await employee.save();
+    res.status(201).send('Employee added successfully');
+});
+// Xóa nhân viên
+router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const employee = await Employee.findByIdAndDelete(id);
+        if (!employee) {
+            return res.status(404).send('Employee not found');
+        }
+        res.send('Employee deleted successfully');
+    } catch (error) {
+        res.status(500).send('Server error');
+    }
+});
+// Sửa nhân viên theo ID
+router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
+    const { id } = req.params;
+    const { name, email, password, role } = req.body;
+
+    const updatedData = {};
+    if (name) updatedData.name = name;
+    if (email) updatedData.email = email;
+    if (password) updatedData.password = await bcrypt.hash(password, 10); // Băm mật khẩu nếu có
+    if (role) updatedData.role = role;
+    try {
+        const employee = await Employee.findByIdAndUpdate(id, updatedData, { new: true });
+        if (!employee) {
+            return res.status(404).send('Employee not found');
+        }
+        res.send('Employee updated successfully');
+    } catch (error) {
+        res.status(500).send('Server error');
+    }
+});
 export default router;
